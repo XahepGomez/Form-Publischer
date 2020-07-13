@@ -1,0 +1,187 @@
+function main(e) {
+  
+  var Id_Generados = "1VyBwTJR5wqaDydAKO5bhnY4rRfzWPbHc";
+  var Id_Plantilla = "1zqy-9W9s25GNbPIUuXXle_bqurlsyPfbxfgCy8Q2-IM";
+  var Id_HojadeRespuestas = "1qzHBoa6nm5wrtx_PT03FBPEWBxiEra-QgU59Hg8bu44";
+  
+  var asuntoCorreo = "Esto es el asunto del correo";
+  var cuerpoCorreo = "Cuerpo del correo";
+  var nombreEmpresaCorreo = "Y2D";
+  
+  //No tocar!
+  var Increment = Incremental(e,Id_Generados,Id_Plantilla,Id_HojadeRespuestas);
+  var Pdf = CrearDocumentos(e,Id_Generados,Id_Plantilla,Id_HojadeRespuestas,Increment);
+  EnviarCorreo(e.namedValues['Email'],asuntoCorreo,cuerpoCorreo,nombreEmpresaCorreo,Pdf);
+}
+
+
+
+function Prueba(){
+
+  var Hoja_Respuesta = SpreadsheetApp.openById("1qzHBoa6nm5wrtx_PT03FBPEWBxiEra-QgU59Hg8bu44").getSheetByName("Respuestas de formulario 1");
+  var textFinder = openPlantilla.createTextFinder(vaule).findAll();
+  
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function Incremental(e,Id_Generados,Id_Plantilla,Id_HojadeRespuestas){
+  
+  var fila = e.range.getRow();
+  
+  var Hoja_Respuesta = SpreadsheetApp.openById(Id_HojadeRespuestas).getSheetByName("Respuestas de formulario 1");
+  var increment = 0;
+   for(var i= Hoja_Respuesta.getLastColumn();i>0;i--){
+ 
+    var textFinder = Hoja_Respuesta.createTextFinder("INCREMENT").findAll();
+
+    for(var u =0;u<textFinder.length;u++){
+      var x = Hoja_Respuesta.getRange(fila-1,textFinder[u].getColumn());
+      if(x.getValue() == "" || x.getValue() == "INCREMENT"){
+        var y = Hoja_Respuesta.getRange(fila,textFinder[u].getColumn());
+        y.setValue(1);
+        increment = y.getValue();
+      }else{
+        var y = Hoja_Respuesta.getRange(fila,textFinder[u].getColumn());
+        y.setValue(x.getValue()+1);
+        increment = y.getValue();
+      }
+
+    }
+    
+  }
+  Logger.log("Terminada la función Increment");
+  return increment;
+
+}
+//---------------------------------------------------------------------------------------
+function CrearDocumentos(e,Id_Generados,Id_Plantilla,Id_HojadeRespuestas,increment){
+  
+  var Carpeta_Generados = DriveApp.getFolderById(Id_Generados);
+  var Plantilla = DriveApp.getFileById(Id_Plantilla);
+  
+  //Genero una copia de la platilla
+  var newPlantilla = Plantilla.makeCopy(Carpeta_Generados).setName("Prueba "+increment);
+  var openPlantilla = SpreadsheetApp.openById(newPlantilla.getId()).getSheets()[0];
+  
+  
+  //Genero el PDF
+  var Hoja_Respuesta = SpreadsheetApp.openById(Id_HojadeRespuestas).getSheetByName("Respuestas de formulario 1");
+  
+  for(var i= Hoja_Respuesta.getLastColumn();i>0;i--){
+ 
+    var nombre_pregunta = Hoja_Respuesta.getRange(1,i).getValue();
+    var vaule = "<<"+nombre_pregunta+">>";
+    //Logger.log("Palabra a buscar = " + vaule);
+    var textFinder = openPlantilla.createTextFinder(vaule).findAll();
+    var rta = "";
+    
+    //Se colocan las respuestas que llegan del formulario
+    for(var u =0;u<textFinder.length;u++){
+      
+      if(textFinder[u].getValue().indexOf("<<") == 0){
+        if(textFinder[u].getValue() == vaule){
+          rta = e.namedValues[nombre_pregunta];
+          //Logger.log("Pregunta = "+textFinder[u].getValue() + " - Respuesta = " + rta);
+        }
+      }else{
+        
+        var split= textFinder[u].getValue().split("<<");
+        for(var f = 0;f<split.length;f++){
+          if(split[f].indexOf(">>") != -1){
+            //Logger.log("<<"+split[f] + " == " + vaule);
+            split[f] = "<<"+split[f];
+            
+            if(split[f] == vaule){
+              split[f] = e.namedValues[nombre_pregunta];
+            }else{
+            
+              Logger.log(split[f]);
+              /*split[f] = split[f].split(">>");
+              for(var juli = 0;juli<split[f].length;juli++){   
+               if(split[f][juli].indexOf("<<") != -1){
+                 split[f][juli] = split[f][juli]+">>";
+                 //Logger.log("Comparación = "+split[f][juli] + " == "+ vaule);
+                 if(split[f][juli] == vaule){
+                   split[f][juli] = e.namedValues[nombre_pregunta];
+                 }
+                 
+               }
+ 
+              }*/
+              
+            }
+            
+          }
+          
+        }
+        rta = split.join("");
+        Logger.log("Pregunta = "+textFinder[u].getValue() + " - Respuesta = " + rta);
+        
+      }
+      
+      if(textFinder[u].getValue() == "<<Increment>>"){
+        openPlantilla.getRange(textFinder[u].getRow(),textFinder[u].getColumn()).setValue(increment);
+      }else{
+        openPlantilla.getRange(textFinder[u].getRow(),textFinder[u].getColumn()).setValue(rta);
+      }
+     
+    }
+    
+  }
+  
+  //Se guarda el PDF
+  var Contrato = newPlantilla.getAs(MimeType.PDF);
+  var PDF = Carpeta_Generados.createFile(Contrato).setName("Prueba "+increment);
+  
+  //Coloco el link del PDF
+   for(var i= Hoja_Respuesta.getLastColumn();i>0;i--){
+    var textFinder = Hoja_Respuesta.createTextFinder("PDF LINK").findAll();
+    Hoja_Respuesta.getRange(e.range.getRow(),textFinder[u].getColumn()).setValue(PDF.getUrl());
+  }
+  
+  //Coloco el link de la Hoja de Calculo
+  for(var i = Hoja_Respuesta.getLastColumn();i>0;i--){
+    var textFinder = Hoja_Respuesta.createTextFinder("HOJA DE CALCULO LINK").findAll();
+    Hoja_Respuesta.getRange(e.range.getRow(),textFinder[u].getColumn()).setValue(newPlantilla.getUrl());
+  }
+  
+  Logger.log("Terminada la función CrearDocumentos");
+  return PDF;
+}
+//--------------------------------------------------------------
+function EnviarCorreo(email,asunto,cuerpo,nombreEmpresa,pdf){
+
+  GmailApp.sendEmail(email, asunto, 
+                     cuerpo, 
+                     {attachments:pdf,
+                     name:nombreEmpresa});
+
+}
